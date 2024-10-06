@@ -36,8 +36,8 @@ export class KhachVaoRaKtxService extends MongoRepository<KhachVaoRaKtxDocument>
             {
                 $match: {
                     ngayDen: {
-                        $gte: ngayBatDau,
-                        $lte: ngayKetThuc,
+                        $gte: new Date(ngayBatDau),
+                        $lte: new Date(ngayKetThuc),
                     },
                 },
             },
@@ -58,11 +58,11 @@ export class KhachVaoRaKtxService extends MongoRepository<KhachVaoRaKtxDocument>
         const result = data.reduce((pre, curr) => {
             if (!pre[curr._id.idSinhVien]) {
                 pre[curr._id.idSinhVien] = {
-                    thongTinSinhVien: curr.sinhVienInfo,
+                    thongTinSinhVien: curr.sinhVienInfo[0],
                     danhSachKhach: [],
                 };
                 pre[curr._id.idSinhVien].danhSachKhach.push({
-                    hoDen: curr.hoTenKhach,
+                    hoTen: curr.hoTenKhach,
                     cmtCccd: curr._id.cmtCccd,
                     ngaySinh: curr.ngaySinhKhach,
                     soLanDen: curr.soLanDen,
@@ -71,6 +71,6 @@ export class KhachVaoRaKtxService extends MongoRepository<KhachVaoRaKtxDocument>
             return pre;
         }, {});
 
-        return result;
+        return Object.values(result);
     }
 }

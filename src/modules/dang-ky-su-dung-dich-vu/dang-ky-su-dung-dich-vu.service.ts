@@ -8,6 +8,8 @@ import { DichVuKtx, DichVuKtxDocument } from "../dich-vu-ktx/dich-vu-ktx.entity"
 import { HoaDon, HoaDonDocument } from "../hoa-don/hoa-don.entity";
 import { CreateDangKySuDungDichVuDto } from "./dto/create-dang-ky-su-dung-dich-vudto";
 import { LoaiHoaDon, TrangThaiThanhToan } from "../hoa-don/common/hoa-don.constant";
+// import  from "assert";
+import * as moment from "moment";
 
 @Injectable()
 export class DangKySuDungDichVuService extends MongoRepository<DangKySuDungDichVuDocument> {
@@ -30,6 +32,8 @@ export class DangKySuDungDichVuService extends MongoRepository<DangKySuDungDichV
         const result = await this.dangKyDichVuModel.create({
             ...doc,
             donGia: dichVu.donGia,
+            thang: moment(doc.thoiGianBatDauSuDung).month(),
+            nam: moment(doc.thoiGianBatDauSuDung).year(),
         });
         const hoaDon: Partial<HoaDon> = {
             donGia: dichVu.donGia,
@@ -71,8 +75,8 @@ export class DangKySuDungDichVuService extends MongoRepository<DangKySuDungDichV
             {
                 $match: {
                     thoiGianBatDauSuDung: {
-                        $gte: startDate,
-                        $lte: endDate,
+                        $gte: new Date(startDate),
+                        $lte: new Date(endDate),
                     },
                 },
             },
@@ -89,13 +93,31 @@ export class DangKySuDungDichVuService extends MongoRepository<DangKySuDungDichV
             },
 
         ]);
-        return data;
+        const result = data.reduce((pre, curr) => {
+            if (!pre[curr._id.idSinhVien]) {
+                pre[curr._id.idSinhVien] = {
+                    thongTinSinhVien: curr.sinhVienInfo[0],
+                    danhSachDichVu: [],
+                };
+            }
+            pre[curr._id.idSinhVien].danhSachDichVu.push({
+                thongTinDichVu: curr?.dichVuInfo?.[0] || {},
+                tongTien: curr?.tongTien || 0,
+            });
+            return pre;
+        }, {});
+        return Object.values(result);
     }
 
     async thongKeDichVu(
-
+        nam: number
     ) {
         const result = await this.dangKyDichVuModel.aggregate([
+            {
+                $match: {
+                    nam,
+                },
+            },
             {
                 $lookup: {
                     from: DB_DICH_VU_KTX,
@@ -112,7 +134,7 @@ export class DangKySuDungDichVuService extends MongoRepository<DangKySuDungDichV
                         year: "$nam",
                     },
                     tongDoanhThu: { $sum: "$donGia" },
-                    tenDichVu: { $first: "$dichVu.ten" },
+                    dichVuInfo: { $first: "$dichVu" },
                 },
             },
             {
@@ -122,6 +144,13 @@ export class DangKySuDungDichVuService extends MongoRepository<DangKySuDungDichV
                 },
             },
         ]);
-        return result;
+        return result.map(e => {
+            return {
+                thongTinDichVu: e?.dichVuInfo?.[0] || {},
+                thang: e._id.month + 1,
+                nam: e._id.year,
+                tongDoanhThu: e?.tongDoanhThu || 0,
+            };
+        });
     }
 }
